@@ -4,7 +4,11 @@ import { AppContext } from '../context/AppContext';
 import { toast } from 'react-toastify';
 
 const ProtectedRoute = ({ children }) => {
-    const { isLoggedin, userData } = useContext(AppContext);
+    const { isLoggedin, userData, loading } = useContext(AppContext);
+
+    if (loading) {
+        return null; // Or a loading spinner
+    }
 
     if (!isLoggedin) {
         toast.info("Please login to access this page");
