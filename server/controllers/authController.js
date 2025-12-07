@@ -1,14 +1,26 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import userModel from '../models/userModel.js'
 import transporter from '../config/nodemailer.js';
-import { EMAIL_VERIFY_TEMPLATE, PASSWORD_RESET_TEMPLATE} from '../config/emailTemplates.js'
+import { EMAIL_VERIFY_TEMPLATE, PASSWORD_RESET_TEMPLATE } from '../config/emailTemplates.js'
 
 export const register = async (req, res) => {
     const { name, email, password } = req.body;
 
     if (!name || !email || !password) {
         return res.json({ success: false, message: "Invalid Credientials" });
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        return res.json({ success: false, message: "Invalid Email Format" });
+    }
+
+    // Password strength check
+    if (password.length < 6) {
+        return res.json({ success: false, message: "Password must be at least 6 characters" });
     }
 
     try {
@@ -88,23 +100,23 @@ export const logout = async (req, res) => {
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
         });
 
-        return res.json({success: true, message: "Logged Out"});
+        return res.json({ success: true, message: "Logged Out" });
 
     } catch (error) {
         res.json({ success: false, message: error.message });
     }
 }
 
-export const sendVerifyOtp = async (req, res)=>{
+export const sendVerifyOtp = async (req, res) => {
     try {
-        const {userId} = req.body;
+        const { userId } = req.body;
         const user = await userModel.findById(userId);
 
-        if(user.isAccountVerified){
-            return res.json({success: false, message: "Account Already verified"});
+        if (user.isAccountVerified) {
+            return res.json({ success: false, message: "Account Already verified" });
         }
-        
-        const otp = String(Math.floor(100000 + Math.random()*900000));
+
+        const otp = crypto.randomInt(100000, 999999).toString();
         user.verifyOtp = otp;
         user.verifyOtpExpireAt = Date.now() + 24 * 60 * 60 * 1000;
 
@@ -119,58 +131,58 @@ export const sendVerifyOtp = async (req, res)=>{
         }
 
         await transporter.sendMail(mailOptions);
-        
-        return res.json({ success: true, message: 'Verification OTP sent on email.'});
-        
+
+        return res.json({ success: true, message: 'Verification OTP sent on email.' });
+
     } catch (error) {
-        res.json({ success: false, message: error.message});
+        res.json({ success: false, message: error.message });
     }
 }
 
 // Verify the Email using otp
-export const verifyEmail = async (req, res)=>{
+export const verifyEmail = async (req, res) => {
 
-    const {userId, otp} = req.body;
-    
-    if(!userId || !otp){
-        return res.json({ success: false, message: 'Missing Details'});
+    const { userId, otp } = req.body;
+
+    if (!userId || !otp) {
+        return res.json({ success: false, message: 'Missing Details' });
     }
 
     try {
 
         const user = await userModel.findById(userId);
-        if(!user){
-            return res.json({ success: false, message: 'User no found'});
+        if (!user) {
+            return res.json({ success: false, message: 'User no found' });
         }
 
-        if(user.verifyOtp === '' || user.verifyOtp !== otp){
-            return res.json({ success: false, message: 'Invalid OTP'});
+        if (user.verifyOtp === '' || user.verifyOtp !== otp) {
+            return res.json({ success: false, message: 'Invalid OTP' });
         }
 
-        if(user.verifyOtpExpireAt < Date.now()){
-            return res.json({ success: false, message: 'OTP Expired'});
+        if (user.verifyOtpExpireAt < Date.now()) {
+            return res.json({ success: false, message: 'OTP Expired' });
         }
 
         user.isAccountVerified = true;
         user.verifyOtp = '';
-        user.verifyOtpExpireAt= 0;
+        user.verifyOtpExpireAt = 0;
         await user.save();
 
-        return res.json({ success: true, message: 'Email verified successfully.'});
-        
+        return res.json({ success: true, message: 'Email verified successfully.' });
+
     } catch (error) {
-        res.json({ success: false, message: error.message});
+        res.json({ success: false, message: error.message });
     }
 }
 
 
 // Check if user is authenticated
-export const isAuthenticated = async (req, res)=>{
+export const isAuthenticated = async (req, res) => {
 
     try {
-        return res.json({ success: true})
+        return res.json({ success: true })
     } catch (error) {
-        res.json({ success: false, message: error.message});
+        res.json({ success: false, message: error.message });
     }
 
 }
@@ -178,20 +190,20 @@ export const isAuthenticated = async (req, res)=>{
 
 // Send Password Reset OTP
 
-export const sendResetOtp = async (req, res) =>{
-    const {email} = req.body;
+export const sendResetOtp = async (req, res) => {
+    const { email } = req.body;
 
-    if(!email){
-        return res.json({ success: false, message: 'Email is Required'});
+    if (!email) {
+        return res.json({ success: false, message: 'Email is Required' });
     }
 
     try {
 
-        const user = await userModel.findOne({email});
-        if(!user){
-            return res.json({success: false, message: 'User not found'});
+        const user = await userModel.findOne({ email });
+        if (!user) {
+            return res.json({ success: false, message: 'User not found' });
         }
-        const otp = String(Math.floor(100000 + Math.random()*900000));
+        const otp = crypto.randomInt(100000, 999999).toString();
         user.resetOtp = otp;
         user.resetOtpExpireAt = Date.now() + 15 * 60 * 1000;
 
@@ -207,35 +219,35 @@ export const sendResetOtp = async (req, res) =>{
         }
 
         await transporter.sendMail(mailOptions);
-        
-        return res.json({success: true, message: 'OTP sent to your email.'});
 
-        
+        return res.json({ success: true, message: 'OTP sent to your email.' });
+
+
     } catch (error) {
-        res.json({ success: false, message: error.message});
+        res.json({ success: false, message: error.message });
     }
 }
 
 // Reset User Passowrd
 
-export const resetPassword = async (req, res)=>{
+export const resetPassword = async (req, res) => {
 
-    const {email, otp, newPassword} = req.body;
+    const { email, otp, newPassword } = req.body;
 
-    if(!email || !otp || !newPassword){
-        return res.json({ success: false, message: 'Email, OTP and new passowrd are required!'});
+    if (!email || !otp || !newPassword) {
+        return res.json({ success: false, message: 'Email, OTP and new passowrd are required!' });
     }
 
     try {
-        const user = await userModel.findOne({email});
-        if(!user){
-            return res.json({ success: false, message: 'User not found'});
+        const user = await userModel.findOne({ email });
+        if (!user) {
+            return res.json({ success: false, message: 'User not found' });
         }
-        if(user.resetOtp === "" || user.resetOtp != otp){
-            return res.json({ success: false, message: 'Invalid OTP'});
+        if (user.resetOtp === "" || user.resetOtp != otp) {
+            return res.json({ success: false, message: 'Invalid OTP' });
         }
-        if(user.resetOtpExpireAt < Date.now()){
-            return res.json({ success: false, message: 'OTP Expired'})
+        if (user.resetOtpExpireAt < Date.now()) {
+            return res.json({ success: false, message: 'OTP Expired' })
         }
 
         const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -245,10 +257,10 @@ export const resetPassword = async (req, res)=>{
 
         await user.save();
 
-        return res.json({ success: true, message: 'Password has been reset successfully'});
-                             
-        
+        return res.json({ success: true, message: 'Password has been reset successfully' });
+
+
     } catch (error) {
-        res.json({ success: false, message: error.message});
+        res.json({ success: false, message: error.message });
     }
 }
